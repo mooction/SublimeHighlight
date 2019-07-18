@@ -54,9 +54,15 @@ class RtfFormatter(Formatter):
         self.fontface = options.get('fontface') or ''
 
     def _escape(self, text):
-        return text.replace('\\', '\\\\') \
+        text = text.replace('\\', '\\\\') \
                    .replace('{', '\\{') \
                    .replace('}', '\\}')
+        # RTF does not support UNICODE at all. We have to "Encode" them first. For example:
+        # wchar_t* c=L"你好"; should be encoded to \'c4\'e3\'ba\'c3. And it is supposed to convert 
+        # UNICODE to ANSI to prevent losing data. 
+        import re
+        return re.sub(r'([^\x00-\xff])', lambda m:
+            ''.join([("\\'" + hex(c)[2:]) for c in m.group(1).encode('mbcs')]), text)
 
     def _escape_text(self, text):
         # empty strings, should give a small performance improvment
@@ -87,7 +93,7 @@ class RtfFormatter(Formatter):
     def format_unencoded(self, tokensource, outfile):
         # rtf 1.8 header
         outfile.write(r'{\rtf1\ansi\deff0'
-                      r'{\fonttbl{\f0\fmodern\fprq1\fcharset0%s;}}'
+                      r'{\fonttbl{\f0\fmodern\fprq1\fcharset134%s;}}'
                       r'{\colortbl;' % (self.fontface and
                                         ' ' + self._escape(self.fontface) or
                                         ''))
